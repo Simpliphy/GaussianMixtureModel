@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 from tqdm import tqdm
 
-from hmm.gaussian.GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
+from GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
 
 class GaussianSoftClustering(object):
     """

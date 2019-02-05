@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 from tqdm import tqdm
 
-from GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
+from gmm.GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
 
 np.random.seed(42)
 
@@ -77,21 +77,21 @@ class GaussianSoftClustering(object):
 
         number_of_objects = observations.shape[0]
         number_of_clusters = parameters.hidden_states_distribution.shape[1]
-        number_of_features = observations.shape[1]  # dimension of each object
+        number_of_features = observations.shape[1]
 
-        normalization_constants = np.sum(parameters.hidden_states_distribution, 0)  # (K,)
+        normalization_constants = np.sum(parameters.hidden_states_distribution, 0)
 
         mu = np.dot(parameters.hidden_states_distribution.T, observations) / normalization_constants.reshape(-1, 1)
         hidden_states_prior = normalization_constants / number_of_objects
         sigma = np.zeros((number_of_clusters, number_of_features, number_of_features))
 
-        for cluster_index in range(number_of_clusters):
+        for state_index in range(number_of_clusters):
 
-            x_mu = observations - mu[cluster_index]
-            gamma_diag = np.diag(parameters.hidden_states_distribution[:, cluster_index])
-
-            sigma_k = np.dot(np.dot(x_mu.T, gamma_diag), x_mu)
-            sigma[cluster_index, ...] = sigma_k / normalization_constants[cluster_index]
+            x_mu = observations - mu[state_index]
+            hidden_state_weights_diag = np.diag(parameters.hidden_states_distribution[:, state_index])
+           
+            sigma_state = np.dot(np.dot(x_mu.T, hidden_state_weights_diag), x_mu)
+            sigma[state_index, ...] = sigma_state / normalization_constants[state_index]
 
         parameters.hidden_states_prior = hidden_states_prior
         parameters.mu = mu
@@ -177,5 +177,4 @@ class GaussianSoftClustering(object):
                 print("Singular matrix: components collapsed")
                 pass
 
-        return best_loss, best_parameters.hidden_states_prior, best_parameters.mu, best_parameters.sigma, best_parameters.hidden_states_distribution
-
+        return best_loss, best_parameters

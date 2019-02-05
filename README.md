@@ -1,8 +1,8 @@
 # Gaussian Mixture Model
 
-$`
+$$
 P(X|\lambda) \sim \sum_i^M w_i Normal(X|\mu_i , \Sigma_i)
-$`
+$$
 
 
 

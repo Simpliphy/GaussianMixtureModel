@@ -4,6 +4,8 @@ from tqdm import tqdm
 
 from GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
 
+np.random.seed(42)
+
 class GaussianSoftClustering(object):
     """
     Based on assignment from week 2 Bayesian method for machine learning of Coursera.
@@ -17,7 +19,7 @@ class GaussianSoftClustering(object):
 
         """
         Performs E-step on GMM model
-        # P(t|x)=p(x|t)p(t)/z
+        # P(i|x)=p(x|i)p(i)/z
         # p(x|t)=N(mu,sigma)
 
         Returns:

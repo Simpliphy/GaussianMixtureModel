@@ -1,15 +1,11 @@
 # Gaussian Mixture Model
 
-$$
-P(X|\lambda) \sim \sum_i^M w_i Normal(X|\mu_i , \Sigma_i)
-$$
+![](./equations/gaussian_mixture_def.gif)
 
-
-
-where 
+where
 
 * X is the data
-* $\lambda$ is the model parameters ($\mu , \Sigma, w_i $)
+* $\lambda​$ is the model parameters ($\mu , \Sigma, w_i ​$)
 
 * $w_i$ is the weight of the $i​$ Mixture component
 * $\mu_i$ is the mean of the $i$ mixture component 

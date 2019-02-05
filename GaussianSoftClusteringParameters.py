@@ -21,3 +21,6 @@ class GaussianSoftClusteringParameters(object):
         self.mu = mu
         self.sigma = sigma
         self.hidden_states_distribution = np.zeros((number_of_observations, number_of_clusters))
+
+    # TODO implement setter and getter
+    # assert isinstance np.ndarray

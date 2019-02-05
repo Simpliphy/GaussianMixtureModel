@@ -2,6 +2,7 @@ from Timer import Timer
 
 import tensorflow as tf
 import tensorflow_probability as tfp
+
 from tensorflow_probability import edward2 as ed
 
 class BayesianLinearRegressor_TF_MCMC(object):

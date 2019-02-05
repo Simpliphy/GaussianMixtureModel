@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 from tqdm import tqdm
+import tensorflow as tf
+import tensorflow_probability as tfp
 
 from gmm.GaussianSoftClusteringParameters import GaussianSoftClusteringParameters
 
@@ -35,24 +37,50 @@ class GaussianSoftClustering(object):
         parameters.hidden_states_prior
 
         """
+
+
         assert isinstance(observations, np.ndarray)
 
         number_of_observations = observations.shape[0]
         number_of_clusters = parameters.hidden_states_prior.shape[0]
-        hidden_states_distribution = np.zeros((number_of_observations, number_of_clusters))
+        with tf.variable_scope("E_step", reuse=tf.AUTO_REUSE):
 
-        for cluster_index in range(number_of_clusters):
+            hidden_states_distribution_tf = tf.get_variable(name="hidden_state_distribution",
+                                                            shape=(number_of_observations, number_of_clusters),
+                                                            dtype=tf.float64)
 
-            multivariate_normal_pdf = multivariate_normal.pdf(observations,
-                                                              mean=parameters.mu[cluster_index, :],
-                                                              cov=parameters.sigma[cluster_index, ...])
 
-            hidden_states_distribution[:, cluster_index] = multivariate_normal_pdf *\
-                                                           (parameters.hidden_states_prior[cluster_index])
+        with tf.Session() as sess:
 
-        hidden_states_distribution /= np.sum(hidden_states_distribution, 1).reshape(-1, 1)
+            init = tf.group(tf.global_variables_initializer(),
+                           tf.local_variables_initializer())
 
-        parameters.hidden_states_distribution = hidden_states_distribution
+            sess.run(init)
+
+
+            for cluster_index in range(number_of_clusters):
+
+                multivariate_normal_pdf = tfp.distributions.MultivariateNormalFullCovariance(loc=parameters.mu[cluster_index, :],
+                                                                    covariance_matrix=parameters.sigma[cluster_index, ...])
+
+                multivariate_normal_prob = multivariate_normal_pdf.prob(observations)
+                prior_of_state = tf.convert_to_tensor(parameters.hidden_states_prior[cluster_index], dtype=tf.float64)
+                product_prior_and_normal = multivariate_normal_prob * prior_of_state
+                assign = hidden_states_distribution_tf[:, cluster_index].assign(product_prior_and_normal)
+
+
+                sess.run([multivariate_normal_prob,prior_of_state,product_prior_and_normal,assign])
+
+
+            hidden_states_distribution_tf_normalization = tf.reduce_sum(hidden_states_distribution_tf, axis=1)
+            hidden_states_normalization_constants = tf.expand_dims(hidden_states_distribution_tf_normalization, 0)
+
+            hidden_states_distribution_tf_normalized = hidden_states_distribution_tf / tf.transpose(
+                hidden_states_normalization_constants)
+
+            [_, hidden_states] = sess.run([hidden_states_distribution_tf_normalization, hidden_states_distribution_tf_normalized])
+
+            parameters.hidden_states_distribution = hidden_states
 
     def _M_step(self, observations, parameters):
         """
@@ -75,23 +103,33 @@ class GaussianSoftClustering(object):
         assert isinstance(observations, np.ndarray)
         assert isinstance(parameters.hidden_states_distribution, np.ndarray)
 
-        number_of_objects = observations.shape[0]
+        number_of_observations = observations.shape[0]
         number_of_clusters = parameters.hidden_states_distribution.shape[1]
         number_of_features = observations.shape[1]
 
-        normalization_constants = np.sum(parameters.hidden_states_distribution, 0)
+        with tf.variable_scope("M_step", reuse=tf.AUTO_REUSE):
 
-        mu = np.dot(parameters.hidden_states_distribution.T, observations) / normalization_constants.reshape(-1, 1)
-        hidden_states_prior = normalization_constants / number_of_objects
-        sigma = np.zeros((number_of_clusters, number_of_features, number_of_features))
+            hidden_states_distribution_tf = tf.convert_to_tensor(parameters.hidden_states_distribution,
+                                                                  dtype=tf.float64)
 
-        for state_index in range(number_of_clusters):
+            normalization_constants = tf.expand_dims(tf.reduce_sum(hidden_states_distribution_tf, axis=0), 1)
 
-            x_mu = observations - mu[state_index]
-            hidden_state_weights_diag = np.diag(parameters.hidden_states_distribution[:, state_index])
-           
-            sigma_state = np.dot(np.dot(x_mu.T, hidden_state_weights_diag), x_mu)
-            sigma[state_index, ...] = sigma_state / normalization_constants[state_index]
+            mu = tf.matmul(hidden_states_distribution_tf, observations)/normalization_constants
+
+            hidden_states_prior = normalization_constants / number_of_observations
+
+
+            #sigma = np.zeros((number_of_clusters, number_of_features, number_of_features))
+
+            for state_index in range(number_of_clusters):
+
+                observation_translated = tf.convert_to_tensor(observations) - mu[state_index]
+
+                hidden_state_weights_diag = np.diag(parameters.hidden_states_distribution[:, state_index])
+
+                sigma_state = np.dot(np.dot(x_mu.T, hidden_state_weights_diag), x_mu)
+                sigma[state_index, ...] = sigma_state / normalization_constants[state_index]
+
 
         parameters.hidden_states_prior = hidden_states_prior
         parameters.mu = mu

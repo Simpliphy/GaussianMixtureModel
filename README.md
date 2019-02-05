@@ -13,7 +13,7 @@ where
 
 
 
-![](fig_gaussian_mixtures.png)
+![](./figures/fig_gaussian_mixtures.png)
 
 
 
@@ -49,4 +49,4 @@ Notes:
 
 
 
-![](fig_gaussian_mixtures_EM.png)
+![](./figures/fig_gaussian_mixtures_EM.png)

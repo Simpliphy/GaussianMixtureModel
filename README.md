@@ -50,3 +50,12 @@ Notes:
 
 
 ![](./figures/fig_gaussian_mixtures_EM.png)
+
+
+
+
+
+## Tensorflow implementation
+
+ [blog post about structuring model](https://danijar.com/structuring-your-tensorflow-models/)
+

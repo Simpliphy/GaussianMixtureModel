@@ -49,7 +49,6 @@ class GaussianSoftClustering(object):
                                                             shape=(number_of_observations, number_of_clusters),
                                                             dtype=tf.float64)
 
-
         with tf.Session() as sess:
 
             init = tf.group(tf.global_variables_initializer(),
@@ -89,9 +88,9 @@ class GaussianSoftClustering(object):
         changed:
         --------
 
-        parameters.mu
-        parameters.sigma
-        parameters.hidden_states_prior
+        parameters.mu     [|states| x |features|]
+        parameters.sigma [|states| x |features| x |features|]
+        parameters.hidden_states_prior [|states|]
 
         keeped constant:
         ----------------
@@ -107,29 +106,37 @@ class GaussianSoftClustering(object):
         number_of_clusters = parameters.hidden_states_distribution.shape[1]
         number_of_features = observations.shape[1]
 
-        with tf.variable_scope("M_step", reuse=tf.AUTO_REUSE):
+        sigma = np.zeros((number_of_clusters, number_of_features, number_of_features))
+        assert number_of_features == 1, "The tensorflow implementation only work for one feature"
+
+        with tf.Session() as sess:
+
+            init = tf.group(tf.global_variables_initializer(),
+                           tf.local_variables_initializer())
+
+            sess.run(init)
 
             hidden_states_distribution_tf = tf.convert_to_tensor(parameters.hidden_states_distribution,
                                                                   dtype=tf.float64)
 
             normalization_constants = tf.expand_dims(tf.reduce_sum(hidden_states_distribution_tf, axis=0), 1)
 
-            mu = tf.matmul(hidden_states_distribution_tf, observations)/normalization_constants
+            mu_tf = tf.matmul(tf.transpose(hidden_states_distribution_tf), observations)/normalization_constants
+            hidden_states_prior_tf = normalization_constants / number_of_observations
 
-            hidden_states_prior = normalization_constants / number_of_observations
-
-
-            #sigma = np.zeros((number_of_clusters, number_of_features, number_of_features))
+            [mu, hidden_states_prior] = sess.run([mu_tf, hidden_states_prior_tf])
 
             for state_index in range(number_of_clusters):
 
                 observation_translated = tf.convert_to_tensor(observations) - mu[state_index]
+                hidden_state_weights = tf.convert_to_tensor(parameters.hidden_states_distribution[:, state_index])
 
-                hidden_state_weights_diag = np.diag(parameters.hidden_states_distribution[:, state_index])
+                observation_translated_squared = tf.square(observation_translated)
+                weighted_squared = tf.multiply(observation_translated_squared, tf.expand_dims(hidden_state_weights,1))
+                sigma_state = tf.reduce_sum(weighted_squared,axis=0)
+                normalize_sigma = sigma_state / normalization_constants[state_index]
 
-                sigma_state = np.dot(np.dot(x_mu.T, hidden_state_weights_diag), x_mu)
-                sigma[state_index, ...] = sigma_state / normalization_constants[state_index]
-
+                sigma[state_index, ...] = sess.run(normalize_sigma)
 
         parameters.hidden_states_prior = hidden_states_prior
         parameters.mu = mu
@@ -154,26 +161,34 @@ class GaussianSoftClustering(object):
         assert isinstance(parameters.sigma, np.ndarray)
         assert isinstance(parameters.hidden_states_distribution, np.ndarray)
         
-        number_of_observations = observations.shape[0]
+        #number_of_observations = observations.shape[0]
         number_of_clusters = parameters.hidden_states_distribution.shape[1]
 
-        loss_per_observation = np.zeros(number_of_observations)
-        for k in range(number_of_clusters):
+        with tf.Session() as sess:
 
-            energy = parameters.hidden_states_distribution[:, k] * (np.log(parameters.hidden_states_prior[k]) +
-                        multivariate_normal.logpdf(observations, mean=parameters.mu[k, :], cov=parameters.sigma[k, ...]))
+            total_loss = 0.0
 
-            entropy = parameters.hidden_states_distribution[:, k] * np.log(parameters.hidden_states_distribution[:, k])
+            for k in range(number_of_clusters):
 
-            loss_per_observation += energy
-            loss_per_observation -= entropy
+                hidden_states_weights = tf.convert_to_tensor(parameters.hidden_states_distribution[:, k])
+                log_hidden_states_prior = tf.log(tf.convert_to_tensor(parameters.hidden_states_prior[k]))
 
-        total_loss = np.sum(loss_per_observation)
+                multivarate_normal_tf = tfp.distributions.MultivariateNormalFullCovariance(loc=parameters.mu[k, :],
+                                                                   covariance_matrix=parameters.sigma[k, ...])
+
+                energy = tf.multiply(hidden_states_weights,log_hidden_states_prior) +\
+                            multivarate_normal_tf.log_prob(observations)
+
+                entropy = tf.multiply(hidden_states_weights,tf.log(hidden_states_weights))
+
+                loss_per_observation = energy - entropy
+                reduce_loss = tf.reduce_sum(loss_per_observation, axis=0)
+                loss_hidden_state = sess.run(reduce_loss)
+                total_loss += loss_hidden_state
 
         return total_loss
 
     def train_EM(self, observations, number_of_clusters, reducing_factor=1e-3, max_iter=100, restarts=10):
-
    
         number_of_features = observations.shape[1] 
         number_of_observations = observations.shape[0]

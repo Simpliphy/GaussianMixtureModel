@@ -58,4 +58,3 @@ Notes:
 ## Tensorflow implementation
 
  [blog post about structuring model](https://danijar.com/structuring-your-tensorflow-models/)
-

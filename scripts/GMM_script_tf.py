@@ -7,13 +7,16 @@ import matplotlib.pyplot as plt
 data = DataGenerator()
 data.show()
 
-gmm_model = GaussianSoftClustering()
+number_of_clusters = 3
+number_of_features = 1
+number_of_observations = data.number_of_datapoints
+
+gmm_model = GaussianSoftClustering(number_of_clusters, number_of_features, number_of_observations)
 
 observations = data.x.copy()
 observations = observations.reshape((observations.shape[0], 1))
 
 best_loss, best_parameters = gmm_model.train_EM(observations,
-                                                     number_of_clusters=3,
                                                      restarts=2,
                                                      max_iter=5)
 

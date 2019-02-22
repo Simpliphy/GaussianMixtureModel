@@ -27,11 +27,25 @@ class GaussianSoftClustering(object):
     Based on assignment from week 2 Bayesian method for machine learning of Coursera.
     """
 
-    def __init__(self,number_of_clusters, number_of_features, number_of_observations):
+    def __init__(self, observations, number_of_states=3):
 
-        self.parameters = ParametersGMM("model", number_of_clusters, number_of_features, number_of_observations)
+        self.parameters = GaussianSoftClusteringParameters()
 
-    def _E_step(self, observations, parameters):
+        self.data = observations
+        self.number_of_states = number_of_states
+        self.number_of_observations = observations.shape[0]
+        self.number_of_features = observations.shape[1]
+
+        self.training_parameters = ParametersGMM_TF(self.number_of_states,
+                                                     self.number_of_features,
+                                                     self.number_of_observations)
+
+        self._M_step = None
+        self._E_step = None
+
+
+    @property
+    def E_step(self):
 
         """
         Performs E-step on GMM model
@@ -52,49 +66,31 @@ class GaussianSoftClustering(object):
 
         """
 
+        #hidden_states_distribution_tf = tf.get_variable(name="hidden_state_distribution",
+        #                                                    shape=(number_of_observations, number_of_clusters),
+        #                                                    dtype=tf.float64)
 
-        assert isinstance(observations, np.ndarray)
+        list_op = list()
+        for cluster_index in range(self.number_of_states):
 
-        number_of_observations = observations.shape[0]
-        number_of_clusters = parameters.hidden_states_prior.shape[0]
+            multivariate_normal_pdf = tfp.distributions.MultivariateNormalFullCovariance(loc=self.training_parameters.mu[cluster_index, :],
+                                                                covariance_matrix=self.training_parameters.sigma[cluster_index, ...])
 
-        with tf.variable_scope("E_step", reuse=tf.AUTO_REUSE):
+            multivariate_normal_prob = multivariate_normal_pdf.prob(self.data)
+            prior_of_state = self.training_parameters.hidden_states_prior[cluster_index]
+            product_prior_and_normal = multivariate_normal_prob * prior_of_state
+            list_op.append(self.training_parameters.hidden_states_distribution[:, cluster_index].assign(product_prior_and_normal))
 
-            hidden_states_distribution_tf = tf.get_variable(name="hidden_state_distribution",
-                                                            shape=(number_of_observations, number_of_clusters),
-                                                            dtype=tf.float64)
+        hidden_states_distribution_tf_normalization = tf.reduce_sum(self.training_parameters.hidden_states_distribution, axis=1)
+        hidden_states_normalization_constants = tf.expand_dims(hidden_states_distribution_tf_normalization, 0)
 
-        with tf.Session() as sess:
+        hidden_states_distribution_tf_normalized = self.training_parameters.hidden_states_distribution / tf.transpose(
+            hidden_states_normalization_constants)
 
-            init = tf.group(tf.global_variables_initializer(),
-                           tf.local_variables_initializer())
+        list_op.append(self.training_parameters.hidden_states_distribution.assign(hidden_states_distribution_tf_normalized))
+        self._E_step = list_op
 
-            sess.run(init)
-
-
-            for cluster_index in range(number_of_clusters):
-
-                multivariate_normal_pdf = tfp.distributions.MultivariateNormalFullCovariance(loc=parameters.mu[cluster_index, :],
-                                                                    covariance_matrix=parameters.sigma[cluster_index, ...])
-
-                multivariate_normal_prob = multivariate_normal_pdf.prob(observations)
-                prior_of_state = tf.convert_to_tensor(parameters.hidden_states_prior[cluster_index], dtype=tf.float64)
-                product_prior_and_normal = multivariate_normal_prob * prior_of_state
-                assign = hidden_states_distribution_tf[:, cluster_index].assign(product_prior_and_normal)
-
-
-                sess.run([multivariate_normal_prob,prior_of_state,product_prior_and_normal,assign])
-
-
-            hidden_states_distribution_tf_normalization = tf.reduce_sum(hidden_states_distribution_tf, axis=1)
-            hidden_states_normalization_constants = tf.expand_dims(hidden_states_distribution_tf_normalization, 0)
-
-            hidden_states_distribution_tf_normalized = hidden_states_distribution_tf / tf.transpose(
-                hidden_states_normalization_constants)
-
-            [_, hidden_states] = sess.run([hidden_states_distribution_tf_normalization, hidden_states_distribution_tf_normalized])
-
-            parameters.hidden_states_distribution.assign(hidden_states)
+        return self._E_step
 
     def _M_step(self, observations, parameters):
         """
@@ -205,40 +201,44 @@ class GaussianSoftClustering(object):
 
     def train_EM(self, observations, reducing_factor=1e-3, max_iter=100, restarts=10):
    
-        number_of_features = observations.shape[1] 
-        number_of_observations = observations.shape[0]
-        number_of_clusters = self.parameters.number_of_clusters
+       # number_of_features = observations.shape[1]
+        #number_of_observations = observations.shape[0]
+        #number_of_clusters = self.parameters.number_of_clusters
 
-        best_loss = -1e7
-        best_parameters = ParametersGMM("best", *self.parameters.dimensions)
-        best_parameters.initialize_parameters()
+        #best_loss = -1e7
+        #best_parameters = ParametersGMM("best", *self.parameters.dimensions)
+        #best_parameters.initialize_parameters()
 
         for _ in tqdm(range(restarts)):
 
             try:
-                parameters = ParametersGMM("calculation", *self.parameters.dimensions)
-                parameters.initialize_parameters()
+                #parameters = ParametersGMM("calculation", *self.parameters.dimensions)
+                #parameters.initialize_parameters()
 
-                self._E_step(observations, parameters)
+                sess = tf.Session()
+                init = tf.group(tf.global_variables_initializer(),
+                                tf.local_variables_initializer())
+                sess.run(init)
+                sess.run(self.E_step)
 
-                prev_loss = self.compute_vlb(observations, parameters)
+               # prev_loss = self.compute_vlb(observations, parameters)
 
                 for _ in range(max_iter):
 
-                    self._E_step(observations, parameters)
-                    self._M_step(observations, parameters)
+                    sess.run(self.E_step)
+                    # self._M_step(observations, parameters)
 
-                    loss = self.compute_vlb(observations, parameters)
+                   # loss = self.compute_vlb(observations, parameters)
 
-                    if loss / prev_loss < reducing_factor:
-                        break
+                   # if loss / prev_loss < reducing_factor:
+                   #     break
 
-                    if loss > best_loss:
+                   # if loss > best_loss:
 
-                        best_loss = loss
-                        best_parameters = parameters
+                     #   best_loss = loss
+                     #   best_parameters = parameters
 
-                    prev_loss = loss
+                  #  prev_loss = loss
 
             except np.linalg.LinAlgError:
                 print("Singular matrix: components collapsed")
@@ -247,11 +247,10 @@ class GaussianSoftClustering(object):
         return best_loss, best_parameters
 
 
-class ParametersGMM():
+class ParametersGMM_TF():
 
-    def __init__(self,name, number_of_clusters, number_of_features, number_of_observations):
+    def __init__(self, number_of_clusters, number_of_features, number_of_observations):
 
-        self.name = name
         self.number_of_clusters = number_of_clusters
         self.number_of_features = number_of_features
         self.number_of_observations = number_of_observations
@@ -261,42 +260,41 @@ class ParametersGMM():
         self.mu = None
         self.sigma = None
 
+        initial_prior = tf.constant(1 / float(self.number_of_clusters) * np.ones(self.number_of_clusters))
+        self.hidden_states_prior = tf.get_variable(name="hidden_states_prior",
+                                                   initializer=initial_prior,
+                                                   # shape=(self.number_of_clusters,1),
+                                                   )  # dtype=tf.float64)
+
+        initial_mu = tf.constant(np.random.randn(self.number_of_clusters, self.number_of_features))
+        self.mu = tf.get_variable(name="mu",
+                                  initializer=initial_mu,
+                                  # shape=(self.number_of_clusters, self.number_of_features),
+                                  )  # dtype=tf.float64)
+
+        sigma = np.zeros((self.number_of_clusters, self.number_of_features, self.number_of_features))
+        sigma[...] = np.identity(self.number_of_features)
+        initial_sigma = tf.constant(sigma)
+        self.sigma = tf.get_variable(name="sigma",
+                                     initializer=initial_sigma,
+                                     # shape=(self.number_of_observations, self.number_of_clusters),
+                                     )  # dtype=tf.float64)
+
+        initial_hidden_states_distributions = tf.constant(
+            np.zeros((self.number_of_observations, self.number_of_clusters)))
+        self.hidden_states_distribution = tf.get_variable(name="hidden_state_distribution",
+                                                          initializer=initial_hidden_states_distributions,
+                                                          # shape=(self.number_of_observations, self.number_of_clusters),
+                                                          )  # dtype=tf.float64)
+
+        # with tf.Session() as sess:
+        # RUN INIT
+        #    sess.run(tf.global_variables_initializer())
+
     @property
     def dimensions(self):
         return [self.number_of_clusters, self.number_of_features, self.number_of_observations]
 
-    #@define_scope
-    def initialize_parameters(self):
-        with tf.variable_scope("parameters_%s" % self.name, reuse=tf.AUTO_REUSE):
-
-            initial_prior = tf.constant(1 / float(self.number_of_clusters) * np.ones(self.number_of_clusters))
-            self.hidden_states_prior = tf.get_variable(name="hidden_states_prior",
-                                                       initializer=initial_prior,
-                                                       #shape=(self.number_of_clusters,1),
-                                                       )  #            dtype=tf.float64)
-
-            initial_mu = tf.constant(np.random.randn(self.number_of_clusters, self.number_of_features))
-            self.mu = tf.get_variable(name="mu",
-                                      initializer=initial_mu,
-                                      #shape=(self.number_of_clusters, self.number_of_features),
-                                      )# dtype=tf.float64)
-
-            sigma = np.zeros((self.number_of_clusters, self.number_of_features,self.number_of_features))
-            sigma[...] = np.identity(self.number_of_features)
-            initial_sigma = tf.constant(sigma)
-            self.sigma = tf.get_variable(name="sigma",
-                                         initializer=initial_sigma,
-                                         #shape=(self.number_of_observations, self.number_of_clusters),
-                                         )  #dtype=tf.float64)
-
-            initial_hidden_states_distributions = tf.constant(np.zeros((self.number_of_observations, self.number_of_clusters)))
-            self.hidden_states_distribution = tf.get_variable(name="hidden_state_distribution",
-                                                              initializer=initial_hidden_states_distributions,
-                                                              #shape=(self.number_of_observations, self.number_of_clusters),
-                                                              )  #       dtype=tf.float64)
 
 
-            with tf.Session() as sess:
-                # RUN INIT
-                sess.run(tf.global_variables_initializer())
 

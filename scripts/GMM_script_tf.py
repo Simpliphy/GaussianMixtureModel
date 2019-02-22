@@ -11,19 +11,20 @@ number_of_clusters = 3
 number_of_features = 1
 number_of_observations = data.number_of_datapoints
 
-gmm_model = GaussianSoftClustering(number_of_clusters, number_of_features, number_of_observations)
-
 observations = data.x.copy()
 observations = observations.reshape((observations.shape[0], 1))
 
+gmm_model = GaussianSoftClustering(observations, number_of_states=3)
 best_loss, best_parameters = gmm_model.train_EM(observations,
-                                                     restarts=2,
-                                                     max_iter=5)
+                                                     restarts=20,
+                                                     max_iter=100)
 
 mu = best_parameters.mu.ravel()
 sigma = best_parameters.sigma.ravel()
 
 mixture = GaussianMixtureFunctor_1d(best_parameters.hidden_states_prior, mu, sigma)
+
+# --------------------- Plot -------------------------------#
 
 x = np.linspace(-1, 11, 100)
 density = np.array([mixture(value) for value in x])

@@ -95,19 +95,63 @@ Instead of having a point estimate of the posterior we have a full posterior dis
 
 We have that the KL divergence becomes
 
-
-
-$$  KL(q(z)q(\theta)|p(z,\theta|X)) =  E_{q(z)}[\log q(z)] + E_{q(\theta)}[\log q(\theta)]  - E_{q(z)q(\theta)}[p(z,\theta|X)] \geq 0​$$
+$$  KL(q(z)q(\theta)|p(z,\theta|X)) =  E_{q(z)}[\log q(z)] + E_{q(\theta)}[\log q(\theta)]  - E_{q(z)q(\theta)}[p(z,\theta|X)] \geq 0$$
 
 
 
-which give the bound
+which give the evidence lower bound (ELBO)
 
 $$  p(X)  \geq E_{q(z)}[\log q(z)] + E_{q(\theta)}[\log q(\theta)]  - E_{q(z)q(\theta)}[p(z,\theta, X)]   $$
 
 
 
-And minimizing with respect to $ q(z) $ and $ q(\theta) $ correspond to findest the tighest lower bound. We should take note that this doesn't mean that the log-likelihood is improved. 
+And minimizing with respect to $ q(z) $ and $ q(\theta) $ correspond to find the tightest lower bound. We should take note that this doesn't mean that the log-likelihood is improved.  The implementation use the Stochastic Variational Inference in Pyro. For more information, you can check [Automatic Variation Inference](https://arxiv.org/pdf/1301.1299.pdf) and the [pyro svi documentation](http://pyro.ai/examples/svi_part_i.html)
+
+Results:
+
+![](/home/louis/Documents/codes/GaussianMixtureModel/figures/svi-loss.png)
+
+![](/home/louis/Documents/codes/GaussianMixtureModel/figures/svi-mixture-density.png)
 
 
 
+## Algorithm 3: Markov chain Monte-Carlo
+
+
+
+The model for the Markov Chains Monte-Carlo (MCMC) is defined as follows:
+
+
+
+All the parameters have priors
+$$
+\sigma_i \sim HalfCauchy(y_0, \gamma)
+$$
+
+$$
+\mu_i \sim Normal(\mu_0, \sigma^2_0)
+$$
+
+$$
+\phi \sim Dirichlet({\bold \alpha})
+$$
+
+$$
+z_i \sim Categorical(\phi)
+$$
+
+and  the observations are modeled as:
+$$
+x_i \sim Normal(\mu_{z_i}, \sigma^2_{z_i})
+$$
+
+
+Sampling is made using [NUTS](https://arxiv.org/pdf/1111.4246.pdf).
+
+
+
+![](/home/louis/Documents/codes/GaussianMixtureModel/figures/MCMC-chains.png)
+
+
+
+![](/home/louis/Documents/codes/GaussianMixtureModel/figures/MCMC-mixture-density.png)

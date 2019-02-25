@@ -1,17 +1,15 @@
 import torch
+import os
+import pyro
 from torch.distributions import constraints
 from matplotlib import pyplot
-
 from collections import defaultdict
 
-import pyro
 import pyro.distributions as dist
 from pyro import poutine
 from pyro.contrib.autoguide import AutoDelta
 from pyro.optim import Adam
-from pyro.infer import SVI, TraceEnum_ELBO, config_enumerate, infer_discrete
-from data_generator import DataGenerator
-import os
+from pyro.infer import SVI, TraceEnum_ELBO, config_enumerate
 
 smoke_test = ('CI' in os.environ)
 assert pyro.__version__.startswith('0.3.0')
@@ -86,10 +84,11 @@ class GaussianMixtureModel(object):
                                         ""
         pyplot.figure(figsize=(10, 3), dpi=100).set_facecolor('white')
         pyplot.plot(self.losses)
-        pyplot.xlabel('iters')
-        pyplot.ylabel('loss')
-        pyplot.yscale('log')
-        pyplot.title('Convergence of SVI')
+        pyplot.xlabel('iters', size=18)
+        pyplot.ylabel('loss', size=18)
+        #pyplot.yscale('log')
+        pyplot.grid()
+        pyplot.title('Convergence of stochastic variational inference', size=20)
 
         pyplot.show()
 

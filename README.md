@@ -8,11 +8,11 @@
 
 where
 
-- X is the data
-- $\lambda$ is the model parameters ($\mu , \Sigma, w_i $)
-- $w_i$ is the weight of the $i$ Mixture component
-- $\mu_i$ is the mean of the $i$ mixture component 
-- $\Sigma_i$ is the covariance matrix for the mixture component
+- ![](./equations/X.svg) is the data
+- ![](./equations/lambda.svg) is the model parameters ![](/home/louis/Documents/codes/GaussianMixtureModel/equations/parameters.svg)
+- ![](/home/louis/Documents/codes/GaussianMixtureModel/equations/weights.svg) is the weight of the $i$ Mixture component
+- ![](/home/louis/Documents/codes/GaussianMixtureModel/equations/mu-i.svg) is the mean of the $i$ mixture component 
+- ![](/home/louis/Documents/codes/GaussianMixtureModel/equations/Sigma-i.svg) is the covariance matrix for the mixture component
 
 
 
@@ -41,7 +41,7 @@ We set the q(z|X) variational distribution to be $p(z|X, \theta)$ to obtain the 
 $$
 \log p(X|\theta) = -E_{p(z|X, \theta)}[\log p(z|X, \theta)] +  E_{p(z|X, \theta)}[\log p(z,X|\theta)]
 $$
-Even tho the distribution used is optimal, the EM algorithm cannot guarantee to find the global maximum and can stay in local maximum. We thus make many random restarts and keep the best result. The expectation-maximization is a point estimate of the a maximum log-likelihood lowerbound with an E-step (assignment step) which calculate the probability of each latent variables given the parameters $\lambda$ and an M-step which calculate the parameter that maximize the lower bound. The implementation is in numpy. 
+Even tho the distribution used is optimal, the EM algorithm cannot guarantee to find the global maximum and can stay in local maximum. We thus make many random restarts and keep the best result. The expectation-maximization is a point estimate of the a maximum log-likelihood lowerbound with an E-step (assignment step) which calculate the probability of each latent variables given the parameters $\lambda​$ and an M-step which calculate the parameter that maximize the lower bound. The implementation is in numpy. 
 
 ### E-step:
 
